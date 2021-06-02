@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h> //getenv
 
 #include "bacnet/bacdef.h"
 #include "bacnet/bacdcode.h"
@@ -279,11 +280,47 @@ bool Analog_Value_Object_Name(
     uint32_t object_instance, BACNET_CHARACTER_STRING *object_name)
 {
     static char text_string[32] = ""; /* okay for single thread */
+    static char env_var_name[32] = ""; 
     bool status = false;
 
     if (object_instance < MAX_ANALOG_VALUES) {
-        sprintf(
-            text_string, "ANALOG VALUE %lu", (unsigned long)object_instance);
+        sprintf(env_var_name, "AV_NAME_%lu", (unsigned long)object_instance);
+        char* custom_desc;
+        custom_desc = getenv(env_var_name);
+        //printf("checking env %s\n", env_var_name);
+        if (!custom_desc) {
+              sprintf(text_string, "ANALOG VALUE %lu", (unsigned long)object_instance);
+           }
+           else{
+               //printf ("custom_desc is: %s\n",custom_desc);
+               sprintf(text_string, "%s", custom_desc);
+               ;
+           };
+                
+        status = characterstring_init_ansi(object_name, text_string);
+    }
+
+    return status;
+}
+
+bool Analog_Value_Custom_Description(
+    uint32_t object_instance, BACNET_CHARACTER_STRING *object_name)
+{
+    static char text_string[32] = ""; /* okay for single thread */
+    static char env_var_name[32] = ""; 
+    bool status = false;
+
+    if (object_instance < MAX_ANALOG_VALUES) {
+        sprintf(env_var_name, "AV_DESC_%lu", (unsigned long)object_instance);
+        char* custom_desc;
+        custom_desc = getenv(env_var_name);
+        if (!custom_desc) {
+              sprintf(text_string, "ANALOG VALUE %lu", (unsigned long)object_instance);
+           }
+           else{
+               sprintf(text_string, "%s", custom_desc);
+           };
+                
         status = characterstring_init_ansi(object_name, text_string);
     }
 
@@ -477,8 +514,15 @@ int Analog_Value_Read_Property(BACNET_READ_PROPERTY_DATA *rpdata)
             break;
 
         case PROP_OBJECT_NAME:
-        case PROP_DESCRIPTION:
             if (Analog_Value_Object_Name(
+                    rpdata->object_instance, &char_string)) {
+                apdu_len =
+                    encode_application_character_string(&apdu[0], &char_string);
+            }
+            break;
+        
+        case PROP_DESCRIPTION:
+            if (Analog_Value_Custom_Description(
                     rpdata->object_instance, &char_string)) {
                 apdu_len =
                     encode_application_character_string(&apdu[0], &char_string);

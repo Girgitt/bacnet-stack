@@ -93,6 +93,11 @@ extern "C" {
     bool Analog_Value_Object_Name(
         uint32_t object_instance,
         BACNET_CHARACTER_STRING * object_name);
+    
+    bool Analog_Value_Custom_Description(
+        uint32_t object_instance,
+        BACNET_CHARACTER_STRING * object_name);
+    
     BACNET_STACK_EXPORT
     bool Analog_Value_Name_Set(
         uint32_t object_instance,

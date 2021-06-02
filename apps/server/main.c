@@ -49,6 +49,8 @@
 #include "bacnet/basic/object/device.h"
 #include "bacnet/basic/object/lc.h"
 #include "bacnet/basic/object/trendlog.h"
+#include "bacnet/basic/object/av.h"
+#include "bacnet/basic/object/netport.h"
 #if defined(INTRINSIC_REPORTING)
 #include "bacnet/basic/object/nc.h"
 #endif /* defined(INTRINSIC_REPORTING) */
@@ -57,7 +59,7 @@
 #endif /* defined(BACFILE) */
 #if defined(BAC_UCI)
 #include "bacnet/basic/ucix/ucix.h"
-#endif /* defined(BAC_UCI) */
+#endif /* defined(BAC_UCI) */ 
 
 /** @file server/main.c  Example server application using the BACnet Stack. */
 
@@ -72,12 +74,57 @@ static const char *BACnet_Version = BACNET_VERSION_TEXT;
 /** Buffer used for receiving */
 static uint8_t Rx_Buf[MAX_MPDU] = { 0 };
 
+static object_functions_t *Object_Table;
+
+static object_functions_t My_Object_Table[] = {
+    { OBJECT_DEVICE, NULL /* Init - don't init Device or it will recourse! */,
+        Device_Count, Device_Index_To_Instance,
+        Device_Valid_Object_Instance_Number, Device_Object_Name,
+        Device_Read_Property_Local, Device_Write_Property_Local,
+        Device_Property_Lists, DeviceGetRRInfo, NULL /* Iterator */,
+        NULL /* Value_Lists */, NULL /* COV */, NULL /* COV Clear */,
+        NULL /* Intrinsic Reporting */ },
+#if (BACNET_PROTOCOL_REVISION >= 17)
+    { OBJECT_NETWORK_PORT, Network_Port_Init, Network_Port_Count,
+        Network_Port_Index_To_Instance, Network_Port_Valid_Instance,
+        Network_Port_Object_Name, Network_Port_Read_Property,
+        Network_Port_Write_Property, Network_Port_Property_Lists,
+        NULL /* ReadRangeInfo */, NULL /* Iterator */, NULL /* Value_Lists */,
+        NULL /* COV */, NULL /* COV Clear */, NULL /* Intrinsic Reporting */ },
+#endif
+    { OBJECT_ANALOG_VALUE, Analog_Value_Init, Analog_Value_Count,
+        Analog_Value_Index_To_Instance, Analog_Value_Valid_Instance,
+        Analog_Value_Object_Name, Analog_Value_Read_Property,
+        Analog_Value_Write_Property, Analog_Value_Property_Lists,
+        NULL /* ReadRangeInfo */, NULL /* Iterator */,
+        Analog_Value_Encode_Value_List, Analog_Value_Change_Of_Value,
+        Analog_Value_Change_Of_Value_Clear, Analog_Value_Intrinsic_Reporting },
+#if defined(INTRINSIC_REPORTING)
+    { OBJECT_NOTIFICATION_CLASS, Notification_Class_Init,
+        Notification_Class_Count, Notification_Class_Index_To_Instance,
+        Notification_Class_Valid_Instance, Notification_Class_Object_Name,
+        Notification_Class_Read_Property, Notification_Class_Write_Property,
+        Notification_Class_Property_Lists, NULL /* ReadRangeInfo */,
+        NULL /* Iterator */, NULL /* Value_Lists */, NULL /* COV */,
+        NULL /* COV Clear */, NULL /* Intrinsic Reporting */ },
+#endif
+    { MAX_BACNET_OBJECT_TYPE, NULL /* Init */, NULL /* Count */,
+        NULL /* Index_To_Instance */, NULL /* Valid_Instance */,
+        NULL /* Object_Name */, NULL /* Read_Property */,
+        NULL /* Write_Property */, NULL /* Property_Lists */,
+        NULL /* ReadRangeInfo */, NULL /* Iterator */, NULL /* Value_Lists */,
+        NULL /* COV */, NULL /* COV Clear */,
+        NULL /* Intrinsic Reporting */ }
+};
+
+
 /** Initialize the handlers we will utilize.
  * @see Device_Init, apdu_set_unconfirmed_handler, apdu_set_confirmed_handler
  */
 static void Init_Service_Handlers(void)
 {
-    Device_Init(NULL);
+    Object_Table = &My_Object_Table[0];
+    Device_Init(Object_Table);
     /* we need to handle who-is to support dynamic device binding */
     apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_WHO_IS, handler_who_is);
     apdu_set_unconfirmed_handler(SERVICE_UNCONFIRMED_WHO_HAS, handler_who_has);
